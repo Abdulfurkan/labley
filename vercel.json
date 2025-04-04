@@ -2,7 +2,7 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps --no-optional --ignore-scripts",
+  "installCommand": "npm install --no-optional --ignore-scripts",
   "outputDirectory": ".next",
   "regions": ["sin1"],
   "headers": [
@@ -26,6 +26,8 @@
   ],
   "env": {
     "NODE_OPTIONS": "--max_old_space_size=4096",
-    "NEXT_TELEMETRY_DISABLED": "1"
+    "NEXT_TELEMETRY_DISABLED": "1",
+    "CANVAS_SKIP_INSTALLATION": "1",
+    "npm_config_canvas_binary_host_mirror": "none"
   }
 }

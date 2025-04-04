@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "cross-env CANVAS_SKIP_INSTALLATION=1 next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -25,7 +25,6 @@
     "pdfjs-dist": "^3.4.120",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-pdf": "^5.7.2",
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
     "util": "^0.12.5",
@@ -36,7 +35,6 @@
     "@tailwindcss/postcss": "^4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
     "lucide-react": "^0.483.0",
@@ -52,13 +50,5 @@
   "resolutions": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
-  },
-  "peerDependencies": {
-    "canvas": "^2.11.2"
-  },
-  "peerDependenciesMeta": {
-    "canvas": {
-      "optional": true
-    }
   }
 }

@@ -1,12 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config, { isServer }) => {
-    // Canvas and related modules should only be imported on client-side
+    // Handle Node.js core modules for client-side
     if (!isServer) {
-      // Handle canvas dependency for react-pdf
       config.resolve.fallback = {
         ...config.resolve.fallback,
+        // Explicitly disable canvas and related modules
         canvas: false,
+        'canvas-prebuilt': false,
         encoding: false,
         // Add Node.js core modules fallbacks for client-side
         fs: false,
@@ -23,14 +24,13 @@ const nextConfig = {
         util: require.resolve('util/'),
       };
     }
-
-    // Explicitly exclude canvas-related modules
-    config.externals = [...(config.externals || [])];
     
     // Add condition to ignore canvas in browser
     if (!isServer) {
       config.module = config.module || {};
       config.module.rules = config.module.rules || [];
+      
+      // Add a rule to null-load canvas and related modules
       config.module.rules.push({
         test: /canvas|pdfjs-dist[\\/]build[\\/]pdf\.worker\.js$/,
         use: 'null-loader',
