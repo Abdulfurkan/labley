@@ -2,16 +2,19 @@
 
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   images: {
+    unoptimized: true,
     domains: ['images.unsplash.com'],
-  },
-  experimental: {
-    esmExternals: false, // This is important for PDF.js
   },
   webpack: (config, { isServer }) => {
     // Handle PDF.js worker
-    config.resolve.alias['pdfjs-dist/build/pdf.worker.js'] = false;
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'pdfjs-dist/build/pdf.worker.js': false,
+      'pdfjs-dist/legacy/build/pdf.worker.js': false,
+      canvas: false,
+      'canvas-prebuilt': false,
+    };
     
     // Explicitly ignore canvas
     if (!isServer) {
@@ -38,7 +41,7 @@ const nextConfig = {
 
     // Add null-loader for canvas modules
     config.module.rules.push({
-      test: /node_modules\/canvas/,
+      test: /node_modules[\/\\]canvas/,
       use: 'null-loader',
     });
 
@@ -49,11 +52,6 @@ const nextConfig = {
     });
 
     return config;
-  },
-  // Disable image optimization for PDF thumbnails
-  images: {
-    unoptimized: true,
-    domains: ['images.unsplash.com'],
   },
   // Transpile specific modules
   transpilePackages: ['pdfjs-dist'],

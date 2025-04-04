@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjs from 'pdfjs-dist';
+import { pdfjs } from '@/lib/pdfjs-setup';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdSpace from '../components/ads/AdSpace';

@@ -1,15 +1,24 @@
 'use client';
 
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 
 // Configure PDF.js for browser environment
 if (typeof window !== 'undefined') {
   // Disable worker to avoid additional dependencies
   pdfjsLib.GlobalWorkerOptions.workerSrc = null;
   
-  // Explicitly disable the canvas factory
-  const originalNodeCanvasFactory = pdfjsLib.NodeCanvasFactory;
+  // Mock NodeCanvasFactory to prevent canvas dependency issues
   pdfjsLib.NodeCanvasFactory = null;
+  
+  // Disable autoFetch and stream
+  pdfjsLib.disableAutoFetch = true;
+  pdfjsLib.disableStream = true;
+  pdfjsLib.disableCreateObjectURL = true;
+  
+  // Mock version property
+  if (!pdfjsLib.version) {
+    pdfjsLib.version = '3.4.120';
+  }
 }
 
 // Custom document loader that doesn't depend on canvas
@@ -18,7 +27,8 @@ const getDocument = (source) => {
     disableWorker: true,
     disableAutoFetch: true,
     disableStream: true,
-    isEvalSupported: false
+    isEvalSupported: false,
+    canvasFactory: null
   };
   
   // Handle different source types

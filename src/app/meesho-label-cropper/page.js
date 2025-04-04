@@ -8,7 +8,7 @@ import Footer from '../components/common/Footer';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from '@/lib/pdfjs-setup';
 import { transferPDFFile } from '../lib/utils';
 import { useSharedPDF } from '../context/PDFContext';
 import PDFUploader from '../components/pdf-editor/PDFUploader';

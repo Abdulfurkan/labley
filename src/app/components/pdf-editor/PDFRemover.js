@@ -113,8 +113,8 @@ export default function PDFRemover({ file, onReset }) {
       const pageCount = pdfDoc.getPageCount();
       const emptyPages = [];
 
-      // Load PDF.js for text extraction
-      const pdfjsLib = await import('pdfjs-dist');
+      // Use our custom PDF.js setup instead of dynamic import
+      const pdfjsLib = await import('@/lib/pdfjs-setup');
       pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
       // Load the PDF document with PDF.js for text extraction
