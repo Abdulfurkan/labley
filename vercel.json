@@ -28,6 +28,10 @@
     "NODE_OPTIONS": "--max_old_space_size=4096",
     "NEXT_TELEMETRY_DISABLED": "1",
     "CANVAS_SKIP_INSTALLATION": "1",
-    "npm_config_canvas_binary_host_mirror": "none"
+    "npm_config_canvas_binary_host_mirror": "none",
+    "NEXT_IGNORE_CANVAS": "1",
+    "NEXT_DISABLE_WORKER": "1",
+    "NEXT_SHARP_PATH": "/tmp/node_modules/sharp",
+    "NEXT_DISABLE_OPTIONAL": "1"
   }
 }

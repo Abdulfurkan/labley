@@ -3,8 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 
-// Set worker source directly with a specific version
-pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+// Disable the canvas factory to prevent canvas dependency issues
+if (typeof window !== 'undefined') {
+  const PDFJS = pdfjs;
+  // Disable worker to avoid additional dependencies
+  PDFJS.disableWorker = true;
+  // Set worker source to null to prevent worker loading
+  PDFJS.GlobalWorkerOptions.workerSrc = null;
+}
 
 export default function SimplePDFViewer({
   file,
@@ -25,15 +31,22 @@ export default function SimplePDFViewer({
 
   // Load PDF document
   useEffect(() => {
-    if (!file) return;
+    if (!file || typeof window === 'undefined') return;
 
     const loadPdf = async () => {
       try {
         // If file is a URL string
         const pdfData = typeof file === 'string' ? file : file;
         
-        // Load the PDF document
-        const loadingTask = pdfjs.getDocument(pdfData);
+        // Configure pdfjs for browser environment
+        const loadingTask = pdfjs.getDocument({
+          url: pdfData,
+          disableWorker: true,
+          disableAutoFetch: true,
+          disableStream: true,
+          isEvalSupported: false
+        });
+        
         const pdf = await loadingTask.promise;
         
         setPdfDocument(pdf);
@@ -54,7 +67,7 @@ export default function SimplePDFViewer({
 
   // Render a specific page
   const renderPage = async (pageNumber, canvasRef) => {
-    if (!pdfDocument || !canvasRef || pageRendering) return;
+    if (!pdfDocument || !canvasRef || pageRendering || typeof window === 'undefined') return;
     
     setPageRendering(true);
     
@@ -88,7 +101,7 @@ export default function SimplePDFViewer({
 
   // Effect to render pages when document is loaded
   useEffect(() => {
-    if (!pdfDocument) return;
+    if (!pdfDocument || typeof window === 'undefined') return;
     
     // For single view, render current page
     if (viewType === 'single' && currentPage && canvasRefs.current[`page-${currentPage}`]) {

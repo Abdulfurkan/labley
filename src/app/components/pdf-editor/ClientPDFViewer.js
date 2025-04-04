@@ -3,8 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 
-// Set worker source directly
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Disable the canvas factory to prevent canvas dependency issues
+if (typeof window !== 'undefined') {
+  const PDFJS = pdfjs;
+  // Disable worker to avoid additional dependencies
+  PDFJS.disableWorker = true;
+  // Set worker source to null to prevent worker loading
+  PDFJS.GlobalWorkerOptions.workerSrc = null;
+}
 
 export default function ClientPDFViewer({
   file,
@@ -48,8 +54,15 @@ export default function ClientPDFViewer({
         // If file is a URL string
         const pdfData = typeof file === 'string' ? file : file;
         
-        // Load the PDF document
-        const loadingTask = pdfjs.getDocument(pdfData);
+        // Configure pdfjs for browser environment
+        const loadingTask = pdfjs.getDocument({
+          url: pdfData,
+          disableWorker: true,
+          disableAutoFetch: true,
+          disableStream: true,
+          isEvalSupported: false
+        });
+        
         const pdf = await loadingTask.promise;
         
         setPdfDocument(pdf);

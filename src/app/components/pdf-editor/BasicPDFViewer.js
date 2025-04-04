@@ -3,43 +3,54 @@
 import { useState, useEffect, useRef } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 
-// Set the worker source
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Disable the canvas factory to prevent canvas dependency issues
+if (typeof window !== 'undefined') {
+  const PDFJS = pdfjs;
+  // Disable worker to avoid additional dependencies
+  PDFJS.disableWorker = true;
+  // Set worker source to null to prevent worker loading
+  PDFJS.GlobalWorkerOptions.workerSrc = null;
+}
 
 export default function BasicPDFViewer({
   file,
   onDocumentLoadSuccess,
-  currentPage = 1,
-  numPages,
-  scale = 1.0,
   onPageLoadSuccess,
+  scale = 1.0,
+  currentPage = 1,
+  numPages = 0,
+  viewType = 'single', // 'single' or 'thumbnails'
   selectedPages = [],
   togglePageSelection,
-  viewType = 'single'
 }) {
-  const [errorMessage, setErrorMessage] = useState(null);
-  const [documentLoaded, setDocumentLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [pdfDocument, setPdfDocument] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [pageRendering, setPageRendering] = useState(false);
   const canvasRefs = useRef({});
 
   // Load PDF document
   useEffect(() => {
-    if (!file) return;
+    if (!file || typeof window === 'undefined') return;
 
     const loadPdf = async () => {
       try {
         // If file is a URL string
         const pdfData = typeof file === 'string' ? file : file;
         
-        // Load the PDF document
-        const loadingTask = pdfjs.getDocument(pdfData);
+        // Configure pdfjs for browser environment
+        const loadingTask = pdfjs.getDocument({
+          url: pdfData,
+          disableWorker: true,
+          disableAutoFetch: true,
+          disableStream: true,
+          isEvalSupported: false
+        });
+        
         const pdf = await loadingTask.promise;
         
         setPdfDocument(pdf);
         setLoading(false);
-        setDocumentLoaded(true);
         
         if (onDocumentLoadSuccess) {
           onDocumentLoadSuccess({ numPages: pdf.numPages });
@@ -47,7 +58,7 @@ export default function BasicPDFViewer({
       } catch (err) {
         console.error('Error loading PDF:', err);
         setLoading(false);
-        setErrorMessage('Failed to load PDF. Please try a different file.');
+        setError('Failed to load PDF. Please try a different file.');
       }
     };
 
@@ -56,7 +67,7 @@ export default function BasicPDFViewer({
 
   // Render a specific page
   const renderPage = async (pageNumber, canvasRef) => {
-    if (!pdfDocument || !canvasRef || pageRendering) return;
+    if (!pdfDocument || !canvasRef || pageRendering || typeof window === 'undefined') return;
     
     setPageRendering(true);
     
@@ -90,7 +101,7 @@ export default function BasicPDFViewer({
 
   // Effect to render pages when document is loaded
   useEffect(() => {
-    if (!documentLoaded || !pdfDocument) return;
+    if (!pdfDocument || typeof window === 'undefined') return;
     
     // For single view, render current page
     if (viewType === 'single' && currentPage && canvasRefs.current[`page-${currentPage}`]) {
@@ -105,72 +116,52 @@ export default function BasicPDFViewer({
         }
       }
     }
-  }, [documentLoaded, pdfDocument, currentPage, numPages, viewType, scale, onPageLoadSuccess]);
+  }, [pdfDocument, currentPage, numPages, viewType, scale, onPageLoadSuccess]);
 
-  if (errorMessage) {
-    return (
-      <div className="text-red-500 p-4 border border-red-300 rounded bg-red-50">
-        {errorMessage}
-      </div>
-    );
+  if (error) {
+    return <div className="text-red-500 p-4">{error}</div>;
   }
 
   if (loading) {
     return (
-      <div className="text-center p-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-        <p className="mt-2">Loading PDF...</p>
+      <div className="text-blue-500 p-4 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mr-2"></div>
+        Loading PDF...
       </div>
     );
   }
 
-  if (!documentLoaded) {
+  if (viewType === 'thumbnails') {
+    // Render thumbnails
     return (
-      <div className="text-center p-4">
-        <p>No PDF file selected.</p>
+      <div className="thumbnail-document">
+        {Array.from(new Array(numPages || 0), (_, index) => (
+          <div 
+            key={`thumbnail-${index + 1}`}
+            className={`mb-3 cursor-pointer border-2 ${
+              selectedPages.includes(index + 1) ? 'border-blue-500' : 'border-transparent'
+            }`}
+            onClick={() => togglePageSelection && togglePageSelection(index + 1)}
+          >
+            <canvas
+              ref={(ref) => canvasRefs.current[`page-${index + 1}`] = ref}
+              width={150}
+              className="max-w-full"
+            />
+            <div className="text-center text-sm mt-1">Page {index + 1}</div>
+          </div>
+        ))}
       </div>
     );
   }
 
-  if (viewType === 'thumbnails' && numPages > 0) {
-    return (
-      <div className="pdf-container">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {Array.from(new Array(numPages), (_, index) => (
-            <div
-              key={`thumbnail-${index + 1}`}
-              className={`cursor-pointer border-2 p-1 ${
-                selectedPages.includes(index + 1) ? 'border-blue-500' : 'border-gray-300'
-              }`}
-              onClick={() => togglePageSelection && togglePageSelection(index + 1)}
-            >
-              <canvas
-                ref={(ref) => canvasRefs.current[`page-${index + 1}`] = ref}
-                width={150}
-                className="max-w-full"
-              />
-              <p className="text-center text-sm mt-1">Page {index + 1}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (currentPage && currentPage <= numPages) {
-    return (
-      <div className="pdf-container flex justify-center">
-        <canvas
-          ref={(ref) => canvasRefs.current[`page-${currentPage}`] = ref}
-          className="max-w-full"
-        />
-      </div>
-    );
-  }
-
+  // Render single page
   return (
-    <div className="text-center p-4">
-      <p>Preparing document for viewing...</p>
+    <div className="flex justify-center">
+      <canvas
+        ref={(ref) => canvasRefs.current[`page-${currentPage}`] = ref}
+        className="max-w-full"
+      />
     </div>
   );
 }

@@ -4,8 +4,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import * as pdfjs from 'pdfjs-dist';
 
-// Set the worker source
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Disable the canvas factory to prevent canvas dependency issues
+if (typeof window !== 'undefined') {
+  const PDFJS = pdfjs;
+  // Disable worker to avoid additional dependencies
+  PDFJS.disableWorker = true;
+  // Set worker source to null to prevent worker loading
+  PDFJS.GlobalWorkerOptions.workerSrc = null;
+}
 
 const PDFViewerClient = ({ file, pageNumber = 1, scale = 1, className = '' }) => {
   const [numPages, setNumPages] = useState(null);
@@ -17,15 +23,22 @@ const PDFViewerClient = ({ file, pageNumber = 1, scale = 1, className = '' }) =>
 
   // Load PDF document
   useEffect(() => {
-    if (!file) return;
+    if (!file || typeof window === 'undefined') return;
 
     const loadPdf = async () => {
       try {
         // If file is a URL string
         const pdfData = typeof file === 'string' ? file : file;
         
-        // Load the PDF document
-        const loadingTask = pdfjs.getDocument(pdfData);
+        // Configure pdfjs for browser environment
+        const loadingTask = pdfjs.getDocument({
+          url: pdfData,
+          disableWorker: true,
+          disableAutoFetch: true,
+          disableStream: true,
+          isEvalSupported: false
+        });
+        
         const pdf = await loadingTask.promise;
         
         setPdfDocument(pdf);
@@ -43,7 +56,7 @@ const PDFViewerClient = ({ file, pageNumber = 1, scale = 1, className = '' }) =>
 
   // Render the PDF page
   useEffect(() => {
-    if (!pdfDocument || !canvasRef.current) return;
+    if (!pdfDocument || !canvasRef.current || typeof window === 'undefined') return;
 
     const renderPage = async () => {
       try {

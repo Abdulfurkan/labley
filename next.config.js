@@ -32,18 +32,24 @@ const nextConfig = {
       
       // Add a rule to null-load canvas and related modules
       config.module.rules.push({
-        test: /canvas|pdfjs-dist[\\/]build[\\/]pdf\.worker\.js$/,
+        test: /canvas/,
         use: 'null-loader',
+      });
+      
+      // Add a rule to handle pdf.worker.js
+      config.module.rules.push({
+        test: /pdf\.worker\.js$/,
+        type: 'asset/resource',
       });
     }
 
     return config;
   },
   // Ensure we transpile the googleapis package
-  transpilePackages: ['googleapis', 'google-auth-library'],
+  transpilePackages: ['googleapis', 'google-auth-library', 'pdfjs-dist'],
   // Add experimental settings for better compatibility
   experimental: {
-    esmExternals: 'loose',
+    esmExternals: false,
   },
 };
 
