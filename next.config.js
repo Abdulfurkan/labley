@@ -1,56 +1,62 @@
 /** @type {import('next').NextConfig} */
+
 const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
+  images: {
+    domains: ['images.unsplash.com'],
+  },
+  experimental: {
+    esmExternals: false, // This is important for PDF.js
+  },
   webpack: (config, { isServer }) => {
-    // Handle Node.js core modules for client-side
+    // Handle PDF.js worker
+    config.resolve.alias['pdfjs-dist/build/pdf.worker.js'] = false;
+    
+    // Explicitly ignore canvas
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
-        // Explicitly disable canvas and related modules
         canvas: false,
         'canvas-prebuilt': false,
-        encoding: false,
-        // Add Node.js core modules fallbacks for client-side
         fs: false,
-        os: false,
         path: false,
+        os: false,
+        crypto: false,
+        stream: false,
+        zlib: false,
+        http: false,
+        https: false,
+        url: false,
+        util: false,
+        assert: false,
+        buffer: false,
+        process: false,
         child_process: false,
-        net: false,
-        tls: false,
-        crypto: require.resolve('crypto-browserify'),
-        stream: require.resolve('stream-browserify'),
-        zlib: require.resolve('browserify-zlib'),
-        http: require.resolve('stream-http'),
-        https: require.resolve('https-browserify'),
-        util: require.resolve('util/'),
       };
     }
-    
-    // Add condition to ignore canvas in browser
-    if (!isServer) {
-      config.module = config.module || {};
-      config.module.rules = config.module.rules || [];
-      
-      // Add a rule to null-load canvas and related modules
-      config.module.rules.push({
-        test: /canvas/,
-        use: 'null-loader',
-      });
-      
-      // Add a rule to handle pdf.worker.js
-      config.module.rules.push({
-        test: /pdf\.worker\.js$/,
-        type: 'asset/resource',
-      });
-    }
+
+    // Add null-loader for canvas modules
+    config.module.rules.push({
+      test: /node_modules\/canvas/,
+      use: 'null-loader',
+    });
+
+    // Add null-loader for pdfjs-dist worker
+    config.module.rules.push({
+      test: /pdf\.worker\.js$/,
+      use: 'null-loader',
+    });
 
     return config;
   },
-  // Ensure we transpile the googleapis package
-  transpilePackages: ['googleapis', 'google-auth-library', 'pdfjs-dist'],
-  // Add experimental settings for better compatibility
-  experimental: {
-    esmExternals: false,
+  // Disable image optimization for PDF thumbnails
+  images: {
+    unoptimized: true,
+    domains: ['images.unsplash.com'],
   },
-};
+  // Transpile specific modules
+  transpilePackages: ['pdfjs-dist'],
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

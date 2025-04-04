@@ -1,31 +1,26 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import * as pdfjs from 'pdfjs-dist';
-
-// Disable the canvas factory to prevent canvas dependency issues
-if (typeof window !== 'undefined') {
-  const PDFJS = pdfjs;
-  // Disable worker to avoid additional dependencies
-  PDFJS.disableWorker = true;
-  // Set worker source to null to prevent worker loading
-  PDFJS.GlobalWorkerOptions.workerSrc = null;
-}
+import { getDocument, pdfjs } from '@/lib/pdfjs-setup';
 
 export default function PDFViewer({
   file,
   onDocumentLoadSuccess,
-  onPageLoadSuccess,
+  currentPage,
+  numPages,
   scale = 1.0,
-  currentPage = 1,
-  numPages = 0,
-  viewType = 'single', // 'single' or 'thumbnails'
+  onPageLoadSuccess,
   selectedPages = [],
   togglePageSelection,
+  viewType = 'single', // 'single' or 'thumbnails'
+  onMouseDown,
+  onMouseMove,
+  onMouseUp,
+  cursorStyle
 }) {
-  const [pdfDocument, setPdfDocument] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [pdfDocument, setPdfDocument] = useState(null);
   const [pageRendering, setPageRendering] = useState(false);
   const canvasRefs = useRef({});
 
@@ -38,15 +33,8 @@ export default function PDFViewer({
         // If file is a URL string
         const pdfData = typeof file === 'string' ? file : file;
         
-        // Configure pdfjs for browser environment
-        const loadingTask = pdfjs.getDocument({
-          url: pdfData,
-          disableWorker: true,
-          disableAutoFetch: true,
-          disableStream: true,
-          isEvalSupported: false
-        });
-        
+        // Use our custom getDocument function
+        const loadingTask = getDocument(pdfData);
         const pdf = await loadingTask.promise;
         
         setPdfDocument(pdf);
@@ -118,8 +106,19 @@ export default function PDFViewer({
     }
   }, [pdfDocument, currentPage, numPages, viewType, scale, onPageLoadSuccess]);
 
+  // Handle mouse events for cropping
+  const handleMouseEvents = (e, eventType) => {
+    if (eventType === 'mousedown' && onMouseDown) {
+      onMouseDown(e);
+    } else if (eventType === 'mousemove' && onMouseMove) {
+      onMouseMove(e);
+    } else if (eventType === 'mouseup' && onMouseUp) {
+      onMouseUp(e);
+    }
+  };
+
   if (error) {
-    return <div className="text-red-500 p-4">{error}</div>;
+    return <div className="text-red-500 p-4" data-component-name="PDFViewer">{error}</div>;
   }
 
   if (loading) {
@@ -160,7 +159,10 @@ export default function PDFViewer({
     <div className="flex justify-center">
       <canvas
         ref={(ref) => canvasRefs.current[`page-${currentPage}`] = ref}
-        className="max-w-full"
+        className={`max-w-full ${cursorStyle ? `cursor-${cursorStyle}` : ''}`}
+        onMouseDown={(e) => handleMouseEvents(e, 'mousedown')}
+        onMouseMove={(e) => handleMouseEvents(e, 'mousemove')}
+        onMouseUp={(e) => handleMouseEvents(e, 'mouseup')}
       />
     </div>
   );

@@ -1,16 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import * as pdfjs from 'pdfjs-dist';
-
-// Disable the canvas factory to prevent canvas dependency issues
-if (typeof window !== 'undefined') {
-  const PDFJS = pdfjs;
-  // Disable worker to avoid additional dependencies
-  PDFJS.disableWorker = true;
-  // Set worker source to null to prevent worker loading
-  PDFJS.GlobalWorkerOptions.workerSrc = null;
-}
+import { getDocument, pdfjs } from '@/lib/pdfjs-setup';
 
 export default function BasicPDFViewer({
   file,
@@ -38,15 +29,8 @@ export default function BasicPDFViewer({
         // If file is a URL string
         const pdfData = typeof file === 'string' ? file : file;
         
-        // Configure pdfjs for browser environment
-        const loadingTask = pdfjs.getDocument({
-          url: pdfData,
-          disableWorker: true,
-          disableAutoFetch: true,
-          disableStream: true,
-          isEvalSupported: false
-        });
-        
+        // Use our custom getDocument function
+        const loadingTask = getDocument(pdfData);
         const pdf = await loadingTask.promise;
         
         setPdfDocument(pdf);

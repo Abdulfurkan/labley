@@ -1,21 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import * as pdfjs from 'pdfjs-dist';
-
-// Disable the canvas factory to prevent canvas dependency issues
-if (typeof window !== 'undefined') {
-  const PDFJS = pdfjs;
-  // Disable worker to avoid additional dependencies
-  PDFJS.disableWorker = true;
-  // Set worker source to null to prevent worker loading
-  PDFJS.GlobalWorkerOptions.workerSrc = null;
-}
+import { getDocument, pdfjs } from '@/lib/pdfjs-setup';
 
 export default function ClientPDFViewer({
   file,
-  onLoadSuccess,
-  onLoadError,
+  onDocumentLoadSuccess,
   currentPage,
   numPages,
   scale = 1.0,
@@ -30,66 +20,42 @@ export default function ClientPDFViewer({
 }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [documentLoaded, setDocumentLoaded] = useState(false);
   const [pdfDocument, setPdfDocument] = useState(null);
   const [pageRendering, setPageRendering] = useState(false);
   const canvasRefs = useRef({});
 
-  // Use an iframe as a fallback if pdfjs fails
-  const [useIframe, setUseIframe] = useState(false);
-
+  // Load PDF document
   useEffect(() => {
-    // Reset state when file changes
-    setError(null);
-    setLoading(true);
-    setDocumentLoaded(false);
-    setUseIframe(false);
-    setPdfDocument(null);
-    
-    if (!file) return;
+    if (!file || typeof window === 'undefined') return;
 
-    // Load the PDF document
     const loadPdf = async () => {
       try {
         // If file is a URL string
         const pdfData = typeof file === 'string' ? file : file;
         
-        // Configure pdfjs for browser environment
-        const loadingTask = pdfjs.getDocument({
-          url: pdfData,
-          disableWorker: true,
-          disableAutoFetch: true,
-          disableStream: true,
-          isEvalSupported: false
-        });
-        
+        // Use our custom getDocument function
+        const loadingTask = getDocument(pdfData);
         const pdf = await loadingTask.promise;
         
         setPdfDocument(pdf);
         setLoading(false);
-        setDocumentLoaded(true);
         
-        if (onLoadSuccess) {
-          onLoadSuccess({ numPages: pdf.numPages });
+        if (onDocumentLoadSuccess) {
+          onDocumentLoadSuccess({ numPages: pdf.numPages });
         }
       } catch (err) {
         console.error('Error loading PDF:', err);
-        setError('Failed to load PDF. Please try again or use a different file.');
         setLoading(false);
-        setUseIframe(true);
-        
-        if (onLoadError) {
-          onLoadError(err);
-        }
+        setError('Failed to load PDF. Please try a different file.');
       }
     };
 
     loadPdf();
-  }, [file, onLoadSuccess, onLoadError]);
+  }, [file, onDocumentLoadSuccess]);
 
   // Render a specific page
   const renderPage = async (pageNumber, canvasRef) => {
-    if (!pdfDocument || !canvasRef || pageRendering) return;
+    if (!pdfDocument || !canvasRef || pageRendering || typeof window === 'undefined') return;
     
     setPageRendering(true);
     
@@ -123,22 +89,31 @@ export default function ClientPDFViewer({
 
   // Effect to render pages when document is loaded
   useEffect(() => {
-    if (!documentLoaded || !pdfDocument) return;
+    if (!pdfDocument || typeof window === 'undefined') return;
     
     // For single view, render current page
     if (viewType === 'single' && currentPage && canvasRefs.current[`page-${currentPage}`]) {
       renderPage(currentPage, canvasRefs.current[`page-${currentPage}`]);
     }
     
-    // For grid or thumbnails view, render all pages
-    if ((viewType === 'grid' || viewType === 'thumbnails') && numPages) {
+    // For thumbnails view, render all pages
+    if (viewType === 'thumbnails' && numPages) {
       for (let i = 1; i <= numPages; i++) {
         if (canvasRefs.current[`page-${i}`]) {
           renderPage(i, canvasRefs.current[`page-${i}`]);
         }
       }
     }
-  }, [documentLoaded, pdfDocument, currentPage, numPages, viewType, scale]);
+    
+    // For grid view, render all pages
+    if (viewType === 'grid' && numPages) {
+      for (let i = 1; i <= numPages; i++) {
+        if (canvasRefs.current[`page-${i}`]) {
+          renderPage(i, canvasRefs.current[`page-${i}`]);
+        }
+      }
+    }
+  }, [pdfDocument, currentPage, numPages, viewType, scale, onPageLoadSuccess]);
 
   // Handle mouse events for cropping
   const handleMouseEvents = (e, eventType) => {
@@ -159,22 +134,7 @@ export default function ClientPDFViewer({
     }
   };
 
-  if (useIframe) {
-    return (
-      <iframe
-        src={file}
-        className="w-full"
-        style={{
-          height: '600px',
-          border: '1px solid #ddd',
-          borderRadius: '4px'
-        }}
-        title="PDF Viewer"
-      />
-    );
-  }
-
-  if (error && !useIframe) {
+  if (error) {
     return <div className="text-red-500 p-4">{error}</div>;
   }
 
@@ -187,7 +147,7 @@ export default function ClientPDFViewer({
     );
   }
 
-  if (documentLoaded && viewType === 'grid' && numPages > 0) {
+  if (viewType === 'grid' && numPages > 0) {
     // Grid view for PDFRemover
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
@@ -222,12 +182,12 @@ export default function ClientPDFViewer({
     );
   } 
   
-  if (documentLoaded && viewType === 'thumbnails' && numPages > 0) {
+  if (viewType === 'thumbnails') {
     // Render thumbnails
     return (
       <div className="thumbnail-document">
-        {Array.from(new Array(numPages), (_, index) => (
-          <div
+        {Array.from(new Array(numPages || 0), (_, index) => (
+          <div 
             key={`thumbnail-${index + 1}`}
             className={`mb-3 cursor-pointer border-2 ${
               selectedPages.includes(index + 1) ? 'border-blue-500' : 'border-transparent'
@@ -245,25 +205,17 @@ export default function ClientPDFViewer({
       </div>
     );
   }
-  
-  if (documentLoaded && currentPage && currentPage <= numPages) {
-    // Render single page
-    return (
-      <div className="flex justify-center items-center w-full h-full m-0 p-0">
-        <canvas
-          ref={(ref) => canvasRefs.current[`page-${currentPage}`] = ref}
-          className={`m-0 p-0 ${cursorStyle ? `cursor-${cursorStyle}` : ''}`}
-          onMouseDown={(e) => handleMouseEvents(e, 'mousedown')}
-          onMouseMove={(e) => handleMouseEvents(e, 'mousemove')}
-          onMouseUp={(e) => handleMouseEvents(e, 'mouseup')}
-        />
-      </div>
-    );
-  }
-  
+
+  // Render single page
   return (
-    <div className="text-center p-4">
-      <p>Preparing document for viewing...</p>
+    <div className="flex justify-center items-center w-full h-full m-0 p-0">
+      <canvas
+        ref={(ref) => canvasRefs.current[`page-${currentPage}`] = ref}
+        className={`m-0 p-0 ${cursorStyle ? `cursor-${cursorStyle}` : ''}`}
+        onMouseDown={(e) => handleMouseEvents(e, 'mousedown')}
+        onMouseMove={(e) => handleMouseEvents(e, 'mousemove')}
+        onMouseUp={(e) => handleMouseEvents(e, 'mouseup')}
+      />
     </div>
   );
 }
