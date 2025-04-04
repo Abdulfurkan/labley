@@ -24,11 +24,18 @@ const nextConfig = {
       };
     }
 
-    // Explicitly exclude canvas.node from being processed
-    config.externals = [...(config.externals || []), 
-      { 'canvas': 'commonjs canvas' },
-      { './build/Release/canvas.node': 'commonjs ./build/Release/canvas.node' }
-    ];
+    // Explicitly exclude canvas-related modules
+    config.externals = [...(config.externals || [])];
+    
+    // Add condition to ignore canvas in browser
+    if (!isServer) {
+      config.module = config.module || {};
+      config.module.rules = config.module.rules || [];
+      config.module.rules.push({
+        test: /canvas|pdfjs-dist[\\/]build[\\/]pdf\.worker\.js$/,
+        use: 'null-loader',
+      });
+    }
 
     return config;
   },
