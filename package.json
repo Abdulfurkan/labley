@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "autoprefixer": "^10.4.14",
+    "autoprefixer": "^10.4.21",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "eslint": "^9",
@@ -51,8 +51,6 @@
     "pdfjs-dist/build/pdf.worker.js": false,
     "pdfjs-dist/legacy/build/pdf.worker.js": false,
     "jsdom": false
-  },
-  "optionalDependencies": {
   },
   "resolutions": {
     "react": "^18.2.0",
