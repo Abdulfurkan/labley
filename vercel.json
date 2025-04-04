@@ -1,7 +1,7 @@
 {
   "framework": "nextjs",
-  "buildCommand": "next build",
-  "devCommand": "next dev --turbopack",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
   "regions": ["sin1"],
@@ -23,5 +23,8 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "NODE_OPTIONS": "--max_old_space_size=4096"
+  }
 }

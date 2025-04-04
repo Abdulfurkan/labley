@@ -25,15 +25,19 @@ const nextConfig = {
     }
 
     // Explicitly exclude canvas.node from being processed
-    config.externals.push({
-      'canvas': 'commonjs canvas',
-      './build/Release/canvas.node': 'commonjs ./build/Release/canvas.node'
-    });
+    config.externals = [...(config.externals || []), 
+      { 'canvas': 'commonjs canvas' },
+      { './build/Release/canvas.node': 'commonjs ./build/Release/canvas.node' }
+    ];
 
     return config;
   },
   // Ensure we transpile the googleapis package
   transpilePackages: ['googleapis', 'google-auth-library'],
+  // Add experimental settings for better compatibility
+  experimental: {
+    esmExternals: 'loose',
+  },
 };
 
 module.exports = nextConfig;
