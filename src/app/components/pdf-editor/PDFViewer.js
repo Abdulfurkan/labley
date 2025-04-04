@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { useEffect, useState, useRef } from 'react';
+import * as pdfjs from 'pdfjs-dist';
 
-// Set up PDF.js worker with a specific version that matches react-pdf
-if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Set up PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 }
 
 export default function PDFViewer({
@@ -13,7 +13,7 @@ export default function PDFViewer({
   onDocumentLoadSuccess,
   currentPage,
   numPages,
-  scale,
+  scale = 1.0,
   onPageLoadSuccess,
   selectedPages = [],
   togglePageSelection,
@@ -21,64 +21,91 @@ export default function PDFViewer({
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pdfDocument, setPdfDocument] = useState(null);
+  const [pageRendering, setPageRendering] = useState(false);
+  const canvasRefs = useRef({});
 
-  // Handle document load success
-  const handleDocumentLoadSuccess = (pdf) => {
-    setLoading(false);
-    if (onDocumentLoadSuccess) {
-      onDocumentLoadSuccess(pdf);
-    }
-  };
+  // Load PDF document
+  useEffect(() => {
+    if (!file) return;
 
-  // Handle document load error
-  const handleDocumentLoadError = (err) => {
-    console.error('Error loading PDF:', err);
-    setLoading(false);
-    setError('Failed to load PDF. Please try a different file.');
-  };
+    const loadPdf = async () => {
+      try {
+        // If file is a URL string
+        const pdfData = typeof file === 'string' ? file : file;
+        
+        // Load the PDF document
+        const loadingTask = pdfjs.getDocument(pdfData);
+        const pdf = await loadingTask.promise;
+        
+        setPdfDocument(pdf);
+        setLoading(false);
+        
+        if (onDocumentLoadSuccess) {
+          onDocumentLoadSuccess({ numPages: pdf.numPages });
+        }
+      } catch (err) {
+        console.error('Error loading PDF:', err);
+        setLoading(false);
+        setError('Failed to load PDF. Please try a different file.');
+      }
+    };
 
-  // Handle page load success
-  const handlePageLoadSuccess = (page) => {
-    if (onPageLoadSuccess) {
-      onPageLoadSuccess(page);
-    }
-  };
+    loadPdf();
+  }, [file, onDocumentLoadSuccess]);
 
-  // Render thumbnails view
-  const renderThumbnails = () => {
-    if (!numPages) return null;
+  // Render a specific page
+  const renderPage = async (pageNumber, canvasRef) => {
+    if (!pdfDocument || !canvasRef || pageRendering) return;
     
-    return Array.from(new Array(numPages), (_, index) => (
-      <div 
-        key={`thumbnail-${index + 1}`}
-        className={`mb-3 cursor-pointer border-2 ${
-          selectedPages.includes(index + 1) ? 'border-blue-500' : 'border-transparent'
-        }`}
-        onClick={() => togglePageSelection && togglePageSelection(index + 1)}
-      >
-        <Page 
-          pageNumber={index + 1} 
-          width={150}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-        />
-        <div className="text-center text-sm mt-1">Page {index + 1}</div>
-      </div>
-    ));
+    setPageRendering(true);
+    
+    try {
+      const page = await pdfDocument.getPage(pageNumber);
+      
+      const viewport = page.getViewport({ scale });
+      const canvas = canvasRef;
+      const context = canvas.getContext('2d');
+      
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      };
+      
+      await page.render(renderContext).promise;
+      
+      setPageRendering(false);
+      
+      if (onPageLoadSuccess) {
+        onPageLoadSuccess(page);
+      }
+    } catch (err) {
+      console.error('Error rendering page:', err);
+      setPageRendering(false);
+    }
   };
 
-  // Render single page view
-  const renderSinglePage = () => {
-    return (
-      <Page 
-        pageNumber={currentPage} 
-        scale={scale}
-        onLoadSuccess={handlePageLoadSuccess}
-        renderTextLayer={false}
-        renderAnnotationLayer={false}
-      />
-    );
-  };
+  // Effect to render pages when document is loaded
+  useEffect(() => {
+    if (!pdfDocument) return;
+    
+    // For single view, render current page
+    if (viewType === 'single' && currentPage && canvasRefs.current[`page-${currentPage}`]) {
+      renderPage(currentPage, canvasRefs.current[`page-${currentPage}`]);
+    }
+    
+    // For thumbnails view, render all pages
+    if (viewType === 'thumbnails' && numPages) {
+      for (let i = 1; i <= numPages; i++) {
+        if (canvasRefs.current[`page-${i}`]) {
+          renderPage(i, canvasRefs.current[`page-${i}`]);
+        }
+      }
+    }
+  }, [pdfDocument, currentPage, numPages, viewType, scale]);
 
   if (error) {
     return <div className="text-red-500 p-4">{error}</div>;
@@ -91,24 +118,37 @@ export default function PDFViewer({
     </div>;
   }
 
+  // Render thumbnails view
+  if (viewType === 'thumbnails') {
+    return (
+      <div className="thumbnail-document">
+        {Array.from(new Array(numPages), (_, index) => (
+          <div 
+            key={`thumbnail-${index + 1}`}
+            className={`mb-3 cursor-pointer border-2 ${
+              selectedPages.includes(index + 1) ? 'border-blue-500' : 'border-transparent'
+            }`}
+            onClick={() => togglePageSelection && togglePageSelection(index + 1)}
+          >
+            <canvas
+              ref={(ref) => canvasRefs.current[`page-${index + 1}`] = ref}
+              width={150}
+              className="max-w-full"
+            />
+            <div className="text-center text-sm mt-1">Page {index + 1}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Render single page view
   return (
-    <Document
-      file={file}
-      onLoadSuccess={handleDocumentLoadSuccess}
-      onLoadError={handleDocumentLoadError}
-      className={viewType === 'thumbnails' ? 'thumbnail-document' : ''}
-      options={{
-        cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
-        cMapPacked: true,
-      }}
-      error={<div className="text-red-500 p-4">Failed to load PDF. Please try a different file.</div>}
-      noData={<div className="text-gray-500 p-4">No PDF file selected.</div>}
-      loading={<div className="text-blue-500 p-4 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mr-2"></div>
-        Loading PDF...
-      </div>}
-    >
-      {viewType === 'thumbnails' ? renderThumbnails() : renderSinglePage()}
-    </Document>
+    <div className="flex justify-center items-center">
+      <canvas
+        ref={(ref) => canvasRefs.current[`page-${currentPage}`] = ref}
+        className="max-w-full"
+      />
+    </div>
   );
 }
